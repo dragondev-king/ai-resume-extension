@@ -9,6 +9,7 @@ import {
   Save,
   Sparkles,
   Trash2,
+  Check,
   X,
 } from 'lucide-react';
 import { toast } from 'react-hot-toast';
@@ -70,6 +71,7 @@ const ResumeEditor: React.FC = () => {
   const [coverDraft, setCoverDraft] = useState('');
   const [newQuestion, setNewQuestion] = useState('');
   const [answerBusyId, setAnswerBusyId] = useState<string | null>(null);
+  const [copiedAnswers, setCopiedAnswers] = useState<Record<string, boolean>>({});
   const { ref: templateSectionRef, width: templateSectionWidth } = useElementWidth<HTMLDivElement>();
 
   const profile = profiles.find((p) => p.id === generation.profileId);
@@ -248,6 +250,25 @@ const ResumeEditor: React.FC = () => {
       toast.error(err instanceof Error ? err.message : 'Failed to generate answer');
     } finally {
       setAnswerBusyId(null);
+    }
+  };
+
+  const handleCopyAnswer = async (questionId: string) => {
+    const question = generation.questions.find((item) => item.id === questionId);
+    if (!question?.answer) {
+      toast.error('No answer to copy');
+      return;
+    }
+
+    try {
+      await navigator.clipboard.writeText(question.answer);
+      setCopiedAnswers((prev) => ({ ...prev, [questionId]: true }));
+      toast.success('Answer copied to clipboard');
+      window.setTimeout(() => {
+        setCopiedAnswers((prev) => ({ ...prev, [questionId]: false }));
+      }, 2000);
+    } catch {
+      toast.error('Failed to copy answer');
     }
   };
 
@@ -723,6 +744,12 @@ const ResumeEditor: React.FC = () => {
           <input
             value={newQuestion}
             onChange={(e) => setNewQuestion(e.target.value)}
+            onKeyDown={(e) => {
+              if (e.key !== 'Enter') return;
+              e.preventDefault();
+              if (!newQuestion.trim() || Boolean(answerBusyId)) return;
+              void handleAddQuestion();
+            }}
             className="flex-1 rounded-md border border-gray-300 px-2 py-1.5 text-sm"
             placeholder="Paste a question from the application"
           />
@@ -751,9 +778,30 @@ const ResumeEditor: React.FC = () => {
             </div>
             {answerBusyId === item.id ? (
               <p className="text-xs text-gray-500">Generating…</p>
-            ) : (
-              <p className="text-sm text-gray-700 whitespace-pre-wrap">{item.answer}</p>
-            )}
+            ) : item.answer ? (
+              <>
+                <p className="text-sm text-gray-700 whitespace-pre-wrap">{item.answer}</p>
+                <div className="flex justify-end">
+                  <button
+                    type="button"
+                    onClick={() => handleCopyAnswer(item.id)}
+                    className="inline-flex items-center gap-1 rounded-md border border-green-200 bg-green-50 px-2 py-1 text-xs font-medium text-green-700 hover:bg-green-100"
+                  >
+                    {copiedAnswers[item.id] ? (
+                      <>
+                        <Check className="w-3.5 h-3.5" />
+                        Copied
+                      </>
+                    ) : (
+                      <>
+                        <Copy className="w-3.5 h-3.5" />
+                        Copy
+                      </>
+                    )}
+                  </button>
+                </div>
+              </>
+            ) : null}
           </div>
         ))}
       </section>
