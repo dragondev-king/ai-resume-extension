@@ -1,0 +1,39 @@
+{
+  "name": "ai-resume-extension",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "vite",
+    "build": "node scripts/copy-pdf-fonts.cjs && tsc --noEmit && vite build",
+    "preview": "vite preview",
+    "postinstall": "node scripts/copy-pdf-fonts.cjs",
+    "copy-pdf-fonts": "node scripts/copy-pdf-fonts.cjs"
+  },
+  "dependencies": {
+    "@supabase/supabase-js": "^2.38.4",
+    "dayjs": "^1.11.13",
+    "dejavu-fonts-ttf": "^2.37.3",
+    "docx": "^8.5.0",
+    "file-saver": "^2.0.5",
+    "jspdf": "^2.5.2",
+    "lucide-react": "^0.294.0",
+    "react": "^18.3.1",
+    "react-dom": "^18.3.1",
+    "react-hot-toast": "^2.4.1"
+  },
+  "devDependencies": {
+    "@crxjs/vite-plugin": "^2.0.0-beta.32",
+    "@types/chrome": "^0.0.287",
+    "@types/file-saver": "^2.0.7",
+    "@types/react": "^18.3.12",
+    "@types/react-dom": "^18.3.1",
+    "@vitejs/plugin-react": "^4.3.4",
+    "autoprefixer": "^10.4.16",
+    "is-glob": "^4.0.3",
+    "postcss": "^8.4.32",
+    "tailwindcss": "^3.3.6",
+    "typescript": "^5.6.3",
+    "vite": "^5.4.11"
+  }
+}
