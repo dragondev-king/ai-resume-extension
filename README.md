@@ -19,9 +19,10 @@ Chrome extension for the AI Resume Hub web app. Open it on a job application pag
 ## How it works
 
 1. Click the extension icon. The **popup** is compact: login, profile, Generate.
-2. Click **Generate**. The extension reads the current tab’s text and opens the **side panel**.
-3. When generation finishes, edit the resume in the side panel.
-4. **Save PDF/DOCX** writes the application to the same Supabase database, then downloads the file.
+2. Click **Generate**. The extension reads **that tab’s** text and opens the **side panel**.
+3. Each tab has its own generation. You can start a resume on tab 1, switch to tab 2, and generate another without waiting.
+4. The side panel follows the active tab, so you see that tab’s loading state or resume.
+5. **Save PDF/DOCX** writes the application to the same Supabase database, then downloads the file.
 
 ## Setup
 

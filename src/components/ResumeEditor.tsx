@@ -30,6 +30,7 @@ import { BoldMarkupText } from './BoldMarkupText';
 
 const ResumeEditor: React.FC = () => {
   const generation = useGenerationState();
+  const tabId = generation.tabId;
   const { user } = useUser();
   const { profiles } = useProfiles();
   const [isEditing, setIsEditing] = useState(false);
@@ -56,7 +57,9 @@ const ResumeEditor: React.FC = () => {
     return resolveResumeExperience(profile?.experience ?? [], current.experience, useAiTitle);
   }, [current, isEditing, profile, useAiTitle]);
 
-  if (!resume || !current) return null;
+  if (!resume || !current || tabId == null) return null;
+
+  const persist = (patch: Parameters<typeof setGenerationState>[1]) => setGenerationState(tabId, patch);
 
   const startEditing = () => {
     setDraft({ ...resume, experience: resume.experience.map((exp) => ({ ...exp, descriptions: [...(exp.descriptions || [])] })) });
@@ -65,7 +68,7 @@ const ResumeEditor: React.FC = () => {
 
   const saveEdits = async () => {
     if (!draft) return;
-    await setGenerationState({ generatedResume: draft });
+    await persist({ generatedResume: draft });
     setIsEditing(false);
     toast.success('Changes saved');
   };
@@ -150,7 +153,7 @@ const ResumeEditor: React.FC = () => {
     setCoverBusy(true);
     try {
       const cover = await generateCoverLetter(profile, generation.jobDescription, resume);
-      await setGenerationState({ coverLetter: cover });
+      await persist({ coverLetter: cover });
       toast.success('Cover letter generated');
     } catch (err) {
       toast.error(err instanceof Error ? err.message : 'Cover letter failed');
@@ -164,12 +167,12 @@ const ResumeEditor: React.FC = () => {
     if (!question || !profile) return;
     const id = Date.now().toString();
     const next = [...generation.questions, { id, question }];
-    await setGenerationState({ questions: next });
+    await persist({ questions: next });
     setNewQuestion('');
     setAnswerBusyId(id);
     try {
       const result = await generateAnswer(profile, question, generation.jobDescription, resume);
-      await setGenerationState({
+      await persist({
         questions: next.map((q) => (q.id === id ? { ...q, answer: result.content } : q)),
       });
     } catch (err) {
@@ -524,7 +527,7 @@ const ResumeEditor: React.FC = () => {
               <button
                 type="button"
                 onClick={async () => {
-                  await setGenerationState({
+                  await persist({
                     coverLetter: { ...generation.coverLetter!, content: coverDraft },
                   });
                   setCoverEditing(false);
@@ -596,7 +599,7 @@ const ResumeEditor: React.FC = () => {
               <button
                 type="button"
                 onClick={() =>
-                  setGenerationState({ questions: generation.questions.filter((q) => q.id !== item.id) })
+                  persist({ questions: generation.questions.filter((q) => q.id !== item.id) })
                 }
                 className="text-red-600"
               >
@@ -614,7 +617,7 @@ const ResumeEditor: React.FC = () => {
 
       <button
         type="button"
-        onClick={() => resetGenerationState()}
+        onClick={() => resetGenerationState(tabId)}
         className="inline-flex items-center gap-2 text-sm text-gray-600 hover:text-gray-900"
       >
         <RefreshCw className="w-4 h-4" />

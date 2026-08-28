@@ -1,35 +1,57 @@
 import {
   DEFAULT_GENERATION_STATE,
-  GENERATION_STORAGE_KEY,
+  generationStorageKey,
+  GENERATION_STORAGE_PREFIX,
   type GenerationState,
 } from './generationTypes';
 
-export async function getGenerationState(): Promise<GenerationState> {
-  const result = await chrome.storage.local.get(GENERATION_STORAGE_KEY);
-  return { ...DEFAULT_GENERATION_STATE, ...(result[GENERATION_STORAGE_KEY] as GenerationState | undefined) };
+export async function getGenerationState(tabId: number): Promise<GenerationState> {
+  const key = generationStorageKey(tabId);
+  const result = await chrome.storage.local.get(key);
+  return {
+    ...DEFAULT_GENERATION_STATE,
+    ...(result[key] as GenerationState | undefined),
+    tabId,
+  };
 }
 
-export async function setGenerationState(patch: Partial<GenerationState>): Promise<GenerationState> {
-  const current = await getGenerationState();
-  const next: GenerationState = { ...current, ...patch, updatedAt: Date.now() };
-  await chrome.storage.local.set({ [GENERATION_STORAGE_KEY]: next });
+export async function setGenerationState(
+  tabId: number,
+  patch: Partial<GenerationState>
+): Promise<GenerationState> {
+  const current = await getGenerationState(tabId);
+  const next: GenerationState = {
+    ...current,
+    ...patch,
+    tabId,
+    updatedAt: Date.now(),
+  };
+  await chrome.storage.local.set({ [generationStorageKey(tabId)]: next });
   return next;
 }
 
-export async function resetGenerationState(): Promise<void> {
-  await chrome.storage.local.set({
-    [GENERATION_STORAGE_KEY]: { ...DEFAULT_GENERATION_STATE, updatedAt: Date.now() },
-  });
+export async function resetGenerationState(tabId: number): Promise<void> {
+  await chrome.storage.local.remove(generationStorageKey(tabId));
 }
 
-export function subscribeGenerationState(listener: (state: GenerationState) => void): () => void {
-  const handler = (changes: { [key: string]: chrome.storage.StorageChange }, area: string) => {
-    if (area !== 'local' || !changes[GENERATION_STORAGE_KEY]) return;
-    listener({
-      ...DEFAULT_GENERATION_STATE,
-      ...(changes[GENERATION_STORAGE_KEY].newValue as GenerationState),
-    });
+export async function removeGenerationState(tabId: number): Promise<void> {
+  await chrome.storage.local.remove(generationStorageKey(tabId));
+}
+
+export function subscribeGenerationState(
+  tabId: number,
+  listener: (state: GenerationState) => void
+): () => void {
+  const key = generationStorageKey(tabId);
+  const handler = (changes: { [name: string]: chrome.storage.StorageChange }, area: string) => {
+    if (area !== 'local' || !changes[key]) return;
+    const value = changes[key].newValue as GenerationState | undefined;
+    listener(value ? { ...DEFAULT_GENERATION_STATE, ...value, tabId } : { ...DEFAULT_GENERATION_STATE, tabId });
   };
   chrome.storage.onChanged.addListener(handler);
   return () => chrome.storage.onChanged.removeListener(handler);
+}
+
+export function isGenerationStorageKey(key: string): boolean {
+  return key.startsWith(GENERATION_STORAGE_PREFIX);
 }

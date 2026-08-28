@@ -63,6 +63,12 @@ const GenerateView: React.FC<GenerateViewProps> = ({ compact = true }) => {
       return;
     }
 
+    const profile = profiles.find((p) => p.id === selectedProfile);
+    if (!profile) {
+      toast.error('Selected profile not found');
+      return;
+    }
+
     setStarting(true);
     try {
       await chrome.storage.local.set({
@@ -71,7 +77,7 @@ const GenerateView: React.FC<GenerateViewProps> = ({ compact = true }) => {
       });
       await openSidePanel(tab.id);
       await queueGeneration({
-        profileId: selectedProfile,
+        profile,
         provider: aiProvider,
         tabId: tab.id,
         pageTitle: tab.title,

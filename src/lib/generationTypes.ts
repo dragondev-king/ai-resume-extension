@@ -45,6 +45,10 @@ export const DEFAULT_GENERATION_STATE: GenerationState = {
   updatedAt: 0,
 };
 
-export const GENERATION_STORAGE_KEY = 'generationState';
+export const GENERATION_STORAGE_PREFIX = 'generationState:';
 export const SELECTED_PROFILE_KEY = 'selectedProfileId';
 export const SELECTED_PROVIDER_KEY = 'selectedProvider';
+
+export function generationStorageKey(tabId: number): string {
+  return `${GENERATION_STORAGE_PREFIX}${tabId}`;
+}
