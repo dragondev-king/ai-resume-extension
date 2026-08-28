@@ -1,4 +1,5 @@
 import { defineManifest } from '@crxjs/vite-plugin';
+import { SUGGESTED_SHORTCUTS } from './lib/commands';
 
 export default defineManifest({
   manifest_version: 3,
@@ -33,4 +34,10 @@ export default defineManifest({
   },
   permissions: ['storage', 'sidePanel', 'scripting', 'tabs', 'activeTab'],
   host_permissions: ['https://*/*', 'http://*/*'],
+  commands: {
+    _execute_action: {
+      suggested_key: SUGGESTED_SHORTCUTS.openPopup,
+      description: 'Open the AI Resume Generator popup',
+    },
+  },
 });

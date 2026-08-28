@@ -10,6 +10,7 @@ import { openTabSidePanel } from '../lib/sidePanel';
 import { API_BASE_URL } from '../lib/api';
 import { SELECTED_PROFILE_KEY, SELECTED_PROVIDER_KEY } from '../lib/generationTypes';
 import type { AIProvider } from '../utils/resumeGenerator';
+import ShortcutHints from './ShortcutHints';
 
 type GenerateViewProps = {
   compact?: boolean;
@@ -234,6 +235,8 @@ const GenerateView: React.FC<GenerateViewProps> = ({ compact = true }) => {
           </>
         )}
       </button>
+
+      <ShortcutHints />
 
       {generation.status === 'blocked' && generation.blockedCompany && (
         <div className="rounded-md border border-amber-200 bg-amber-50 p-3 text-sm text-amber-900">

@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { Mail, Lock, LogIn } from 'lucide-react';
 import { toast } from 'react-hot-toast';
 import { useAuth } from '../contexts/AuthContext';
+import ShortcutHints from './ShortcutHints';
 
 const LoginForm: React.FC = () => {
   const [email, setEmail] = useState('');
@@ -99,6 +100,9 @@ const LoginForm: React.FC = () => {
         <p className="mt-4 text-center text-xs text-gray-500">
           Contact your administrator to get login credentials
         </p>
+        <div className="mt-3">
+          <ShortcutHints />
+        </div>
       </div>
     </div>
   );
