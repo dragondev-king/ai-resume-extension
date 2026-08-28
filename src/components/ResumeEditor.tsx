@@ -29,6 +29,7 @@ import { formatDate } from '../utils/helpers';
 import type { GeneratedResume } from '../utils/resumeGenerator';
 import { BoldMarkupText } from './BoldMarkupText';
 import ResumeTemplatePreview from './ResumeTemplatePreview';
+import ScrollJumpButtons from './ScrollJumpButtons';
 import {
   canApplyToCompany,
   duplicateApplicationMessage,
@@ -805,6 +806,7 @@ const ResumeEditor: React.FC = () => {
           </div>
         ))}
       </section>
+      <ScrollJumpButtons />
     </div>
   );
 };
