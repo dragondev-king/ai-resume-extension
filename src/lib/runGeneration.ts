@@ -33,6 +33,7 @@ export async function queueGeneration(payload: StartGenerationPayload): Promise<
     error: null,
     blockedCompany: null,
     duplicateChecked: false,
+    savedApplicationId: null,
   });
 
   await chrome.runtime.sendMessage({
@@ -99,6 +100,7 @@ export async function runQueuedGeneration(payload: StartGenerationPayload): Prom
         error: null,
         blockedCompany: null,
         duplicateChecked: false,
+        savedApplicationId: null,
       });
     }
 
@@ -128,6 +130,7 @@ export async function runQueuedGeneration(payload: StartGenerationPayload): Prom
       pageTitle: page.title,
       error: null,
       duplicateChecked: Boolean(sessionData.session),
+      savedApplicationId: null,
     });
   } catch (err) {
     await setGenerationState(tabId, {

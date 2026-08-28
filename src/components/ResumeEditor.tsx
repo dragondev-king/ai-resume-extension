@@ -28,6 +28,11 @@ import { formatDate } from '../utils/helpers';
 import type { GeneratedResume } from '../utils/resumeGenerator';
 import { BoldMarkupText } from './BoldMarkupText';
 import ResumeTemplatePreview from './ResumeTemplatePreview';
+import {
+  canApplyToCompany,
+  duplicateApplicationMessage,
+  shouldCheckDuplicateApplications,
+} from '../lib/duplicateCheck';
 
 function useElementWidth<T extends HTMLElement>() {
   const [el, setEl] = useState<T | null>(null);
@@ -82,6 +87,7 @@ const ResumeEditor: React.FC = () => {
   if (!resume || !current || tabId == null) return null;
 
   const persist = (patch: Parameters<typeof setGenerationState>[1]) => setGenerationState(tabId, patch);
+  const alreadySaved = Boolean(generation.savedApplicationId);
 
   const startEditing = () => {
     setDraft({ ...resume, experience: resume.experience.map((exp) => ({ ...exp, descriptions: [...(exp.descriptions || [])] })) });
@@ -123,11 +129,26 @@ const ResumeEditor: React.FC = () => {
       toast.error('Profile or user not found');
       return;
     }
+
+    if (generation.savedApplicationId) {
+      toast.error('This application is already saved. Use DOCX only / PDF only to download again.');
+      return;
+    }
+
     setSaving(true);
     try {
       const template = resolveTemplate();
+      const companyName = (resume.companyName || '').trim();
+      if (shouldCheckDuplicateApplications(profile) && companyName) {
+        const canApply = await canApplyToCompany(profile.id, companyName);
+        if (!canApply) {
+          toast.error(duplicateApplicationMessage(companyName));
+          return;
+        }
+      }
+
       const storedFileName = buildResumeFileName(profile, resume.jobTitle, resume.companyName, format);
-      const { error } = await supabase.rpc('create_job_application', {
+      const { data: applicationId, error } = await supabase.rpc('create_job_application', {
         p_profile_id: profile.id,
         p_bidder_id: user.id,
         p_job_title: resume.jobTitle || '',
@@ -144,6 +165,15 @@ const ResumeEditor: React.FC = () => {
         toast.error(error.message || 'Error saving job application');
         return;
       }
+
+      const savedId =
+        typeof applicationId === 'string'
+          ? applicationId
+          : Array.isArray(applicationId) && typeof applicationId[0] === 'string'
+            ? applicationId[0]
+            : 'saved';
+      await persist({ savedApplicationId: savedId });
+
       await exportFile(format, template.id);
       toast.success(`Saved and downloaded · ${template.name}`);
     } catch (err) {
@@ -347,7 +377,7 @@ const ResumeEditor: React.FC = () => {
         <div className="grid grid-cols-2 gap-2">
           <button
             type="button"
-            disabled={saving || isEditing || regenerating}
+            disabled={saving || isEditing || regenerating || alreadySaved}
             onClick={() => handleSaveAndDownload('docx')}
             className="inline-flex items-center justify-center gap-1 rounded-md bg-green-600 px-2 py-2 text-xs font-medium text-white disabled:opacity-50"
           >
@@ -356,7 +386,7 @@ const ResumeEditor: React.FC = () => {
           </button>
           <button
             type="button"
-            disabled={saving || isEditing || regenerating}
+            disabled={saving || isEditing || regenerating || alreadySaved}
             onClick={() => handleSaveAndDownload('pdf')}
             className="inline-flex items-center justify-center gap-1 rounded-md bg-green-700 px-2 py-2 text-xs font-medium text-white disabled:opacity-50"
           >
@@ -389,7 +419,11 @@ const ResumeEditor: React.FC = () => {
           {regenerating ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Sparkles className="w-3.5 h-3.5" />}
           Regenerate
         </button>
-        <p className="text-[11px] text-gray-500">Save writes the application to Supabase, then downloads the file.</p>
+        <p className="text-[11px] text-gray-500">
+          {alreadySaved
+            ? 'This application is already saved. Use DOCX only / PDF only to download again.'
+            : 'Save writes the application to Supabase, then downloads the file.'}
+        </p>
       </div>
 
       <div className="rounded-md border border-blue-200 bg-blue-50 p-3 space-y-2">

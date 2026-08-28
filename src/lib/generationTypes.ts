@@ -29,6 +29,7 @@ export interface GenerationState {
   error: string | null;
   blockedCompany: string | null;
   duplicateChecked: boolean;
+  savedApplicationId: string | null;
   updatedAt: number;
 }
 
@@ -46,6 +47,7 @@ export const DEFAULT_GENERATION_STATE: GenerationState = {
   error: null,
   blockedCompany: null,
   duplicateChecked: false,
+  savedApplicationId: null,
   updatedAt: 0,
 };
 
