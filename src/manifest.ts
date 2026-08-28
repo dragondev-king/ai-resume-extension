@@ -3,7 +3,10 @@ import { defineManifest } from '@crxjs/vite-plugin';
 export default defineManifest({
   manifest_version: 3,
   name: 'AI Resume Generator',
-  version: '0.1.0',
+  version: '1.0.0',
+  author: {
+    email: "dragondev1017@gmail.com",
+  },
   description: 'Generate a tailored resume from the current job application page.',
   icons: {
     16: 'icons/icon16.png',
