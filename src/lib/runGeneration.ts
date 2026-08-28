@@ -1,8 +1,13 @@
-import { supabase } from './supabase';
 import { extractTabText } from './pageText';
 import { getGenerationState, setGenerationState } from './generationStore';
 import { generateResume, type AIProvider } from '../utils/resumeGenerator';
 import type { ProfileWithDetailsRPC } from './supabase';
+import {
+  canApplyToCompany,
+  duplicateApplicationMessage,
+  shouldCheckDuplicateApplications,
+} from './duplicateCheck';
+import { supabase } from './supabase';
 
 const inFlightTabs = new Set<number>();
 
@@ -26,12 +31,52 @@ export async function queueGeneration(payload: StartGenerationPayload): Promise<
     coverLetter: null,
     questions: [],
     error: null,
+    blockedCompany: null,
+    duplicateChecked: false,
   });
 
   await chrome.runtime.sendMessage({
     type: 'START_GENERATION',
     payload,
   });
+}
+
+async function applyDuplicateCheck(
+  tabId: number,
+  profile: ProfileWithDetailsRPC,
+  companyName: string | undefined,
+  page: { text: string; url: string; title: string }
+): Promise<boolean> {
+  if (!shouldCheckDuplicateApplications(profile)) {
+    await setGenerationState(tabId, { duplicateChecked: true, blockedCompany: null });
+    return true;
+  }
+
+  const company = companyName?.trim();
+  if (!company) {
+    await setGenerationState(tabId, { duplicateChecked: true, blockedCompany: null });
+    return true;
+  }
+
+  const canApply = await canApplyToCompany(profile.id, company);
+  if (!canApply) {
+    await setGenerationState(tabId, {
+      status: 'blocked',
+      generatedResume: null,
+      coverLetter: null,
+      questions: [],
+      jobDescription: page.text,
+      jobDescriptionLink: page.url,
+      pageTitle: page.title,
+      blockedCompany: company,
+      duplicateChecked: true,
+      error: duplicateApplicationMessage(company),
+    });
+    return false;
+  }
+
+  await setGenerationState(tabId, { duplicateChecked: true, blockedCompany: null });
+  return true;
 }
 
 export async function runQueuedGeneration(payload: StartGenerationPayload): Promise<void> {
@@ -52,6 +97,8 @@ export async function runQueuedGeneration(payload: StartGenerationPayload): Prom
         coverLetter: null,
         questions: [],
         error: null,
+        blockedCompany: null,
+        duplicateChecked: false,
       });
     }
 
@@ -60,31 +107,17 @@ export async function runQueuedGeneration(payload: StartGenerationPayload): Prom
       profileId: profile.id,
       provider: payload.provider,
       error: null,
+      blockedCompany: null,
+      duplicateChecked: false,
     });
 
     const page = await extractTabText(tabId);
     const generated = await generateResume(profile, page.text, payload.provider);
 
-    if (generated.companyName && profile.check_duplicate_applications !== false) {
-      const { data: canApply, error: checkError } = await supabase.rpc('can_apply_to_company', {
-        p_profile_id: profile.id,
-        p_company_name: generated.companyName,
-      });
-
-      if (checkError) {
-        throw new Error('Error checking application eligibility');
-      }
-
-      if (!canApply) {
-        await setGenerationState(tabId, {
-          status: 'error',
-          jobDescription: page.text,
-          jobDescriptionLink: page.url,
-          pageTitle: page.title,
-          error: `This profile already has an active application to ${generated.companyName}.`,
-        });
-        return;
-      }
+    const { data: sessionData } = await supabase.auth.getSession();
+    if (sessionData.session) {
+      const allowed = await applyDuplicateCheck(tabId, profile, generated.companyName, page);
+      if (!allowed) return;
     }
 
     await setGenerationState(tabId, {
@@ -94,6 +127,7 @@ export async function runQueuedGeneration(payload: StartGenerationPayload): Prom
       jobDescriptionLink: page.url,
       pageTitle: page.title,
       error: null,
+      duplicateChecked: Boolean(sessionData.session),
     });
   } catch (err) {
     await setGenerationState(tabId, {

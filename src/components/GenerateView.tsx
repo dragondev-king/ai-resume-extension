@@ -6,6 +6,7 @@ import { useUser } from '../contexts/UserContext';
 import { useProfiles } from '../contexts/ProfilesContext';
 import { useGenerationState } from '../lib/useGenerationState';
 import { queueGeneration } from '../lib/runGeneration';
+import { openTabSidePanel } from '../lib/sidePanel';
 import { API_BASE_URL } from '../lib/api';
 import { SELECTED_PROFILE_KEY, SELECTED_PROVIDER_KEY } from '../lib/generationTypes';
 import type { AIProvider } from '../utils/resumeGenerator';
@@ -44,7 +45,7 @@ const GenerateView: React.FC<GenerateViewProps> = ({ compact = true }) => {
   }, [profiles, selectedProfile]);
 
   const openSidePanel = async (tabId: number) => {
-    await chrome.sidePanel.open({ tabId });
+    await openTabSidePanel(tabId);
   };
 
   const handleGenerate = async () => {
@@ -93,15 +94,34 @@ const GenerateView: React.FC<GenerateViewProps> = ({ compact = true }) => {
     }
   };
 
-  const handleOpenResult = async () => {
+  const handleOpenPanel = async () => {
     const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
-    if (tab?.id) {
+    if (!tab?.id) {
+      toast.error('No active tab found');
+      return;
+    }
+    try {
       await openSidePanel(tab.id);
       if (compact) window.close();
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : 'Could not open the panel');
     }
   };
 
   const busy = starting || generation.status === 'pending' || generation.status === 'generating';
+  const showReopenPanel =
+    compact &&
+    (generation.status === 'pending' ||
+      generation.status === 'generating' ||
+      generation.status === 'ready' ||
+      generation.status === 'blocked' ||
+      generation.status === 'error');
+  const reopenLabel =
+    generation.status === 'pending' || generation.status === 'generating'
+      ? 'View progress'
+      : generation.status === 'ready'
+        ? 'Open generated resume'
+        : 'Open panel';
 
   return (
     <div className={compact ? 'p-4 space-y-4' : 'p-5 space-y-5'}>
@@ -185,6 +205,17 @@ const GenerateView: React.FC<GenerateViewProps> = ({ compact = true }) => {
         </div>
       </div>
 
+      {showReopenPanel && (
+        <button
+          type="button"
+          onClick={handleOpenPanel}
+          className="w-full inline-flex items-center justify-center gap-2 rounded-md border border-primary-200 bg-primary-50 px-4 py-2.5 text-sm font-medium text-primary-700 hover:bg-primary-100"
+        >
+          {busy ? <Loader2 className="w-4 h-4 animate-spin" /> : <PanelRightOpen className="w-4 h-4" />}
+          {reopenLabel}
+        </button>
+      )}
+
       <button
         type="button"
         onClick={handleGenerate}
@@ -204,15 +235,11 @@ const GenerateView: React.FC<GenerateViewProps> = ({ compact = true }) => {
         )}
       </button>
 
-      {generation.status === 'ready' && (
-        <button
-          type="button"
-          onClick={handleOpenResult}
-          className="w-full inline-flex items-center justify-center gap-2 rounded-md border border-primary-200 bg-primary-50 px-4 py-2 text-sm font-medium text-primary-700 hover:bg-primary-100"
-        >
-          <PanelRightOpen className="w-4 h-4" />
-          Open generated resume
-        </button>
+      {generation.status === 'blocked' && generation.blockedCompany && (
+        <div className="rounded-md border border-amber-200 bg-amber-50 p-3 text-sm text-amber-900">
+          This profile already has an active application to {generation.blockedCompany}. You cannot
+          submit multiple applications to the same company.
+        </div>
       )}
     </div>
   );

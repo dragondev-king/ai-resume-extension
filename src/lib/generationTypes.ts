@@ -1,7 +1,7 @@
 import type { GeneratedResume } from '../utils/resumeGenerator';
 import type { AIProvider } from '../utils/resumeGenerator';
 
-export type GenerationStatus = 'idle' | 'pending' | 'generating' | 'ready' | 'error';
+export type GenerationStatus = 'idle' | 'pending' | 'generating' | 'ready' | 'blocked' | 'error';
 
 export interface CoverLetterState {
   content: string;
@@ -27,6 +27,8 @@ export interface GenerationState {
   coverLetter: CoverLetterState | null;
   questions: ApplicationQuestion[];
   error: string | null;
+  blockedCompany: string | null;
+  duplicateChecked: boolean;
   updatedAt: number;
 }
 
@@ -42,6 +44,8 @@ export const DEFAULT_GENERATION_STATE: GenerationState = {
   coverLetter: null,
   questions: [],
   error: null,
+  blockedCompany: null,
+  duplicateChecked: false,
   updatedAt: 0,
 };
 

@@ -6,7 +6,6 @@ import {
   FileText,
   Loader2,
   MessageSquare,
-  RefreshCw,
   Save,
   Sparkles,
   Trash2,
@@ -17,7 +16,8 @@ import { supabase } from '../lib/supabase';
 import { useUser } from '../contexts/UserContext';
 import { useProfiles } from '../contexts/ProfilesContext';
 import { useGenerationState } from '../lib/useGenerationState';
-import { resetGenerationState, setGenerationState } from '../lib/generationStore';
+import { setGenerationState } from '../lib/generationStore';
+import { queueGeneration } from '../lib/runGeneration';
 import { generateResumePdf } from '../utils/pdfResumeGenerator';
 import { generateDocx, resolveResumeExperience } from '../utils/docxGenerator';
 import { getUseAiEnhancedJobTitleForProfile } from '../utils/profileMetadata';
@@ -39,6 +39,7 @@ const ResumeEditor: React.FC = () => {
   const [includeLinkedIn, setIncludeLinkedIn] = useState(true);
   const [selectedTemplateId, setSelectedTemplateId] = useState('');
   const [saving, setSaving] = useState(false);
+  const [regenerating, setRegenerating] = useState(false);
   const [coverBusy, setCoverBusy] = useState(false);
   const [coverEditing, setCoverEditing] = useState(false);
   const [coverDraft, setCoverDraft] = useState('');
@@ -128,6 +129,23 @@ const ResumeEditor: React.FC = () => {
       toast.error(err instanceof Error ? err.message : 'Download failed');
     } finally {
       setSaving(false);
+    }
+  };
+
+  const handleRegenerate = async () => {
+    if (!profile || tabId == null) return;
+    setRegenerating(true);
+    try {
+      await queueGeneration({
+        profile,
+        provider: generation.provider,
+        tabId,
+        pageTitle: generation.pageTitle,
+        pageUrl: generation.jobDescriptionLink,
+      });
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : 'Could not regenerate resume');
+      setRegenerating(false);
     }
   };
 
@@ -247,7 +265,7 @@ const ResumeEditor: React.FC = () => {
         <div className="grid grid-cols-2 gap-2">
           <button
             type="button"
-            disabled={saving || isEditing}
+            disabled={saving || isEditing || regenerating}
             onClick={() => handleSaveAndDownload('docx')}
             className="inline-flex items-center justify-center gap-1 rounded-md bg-green-600 px-2 py-2 text-xs font-medium text-white disabled:opacity-50"
           >
@@ -256,7 +274,7 @@ const ResumeEditor: React.FC = () => {
           </button>
           <button
             type="button"
-            disabled={saving || isEditing}
+            disabled={saving || isEditing || regenerating}
             onClick={() => handleSaveAndDownload('pdf')}
             className="inline-flex items-center justify-center gap-1 rounded-md bg-green-700 px-2 py-2 text-xs font-medium text-white disabled:opacity-50"
           >
@@ -265,7 +283,7 @@ const ResumeEditor: React.FC = () => {
           </button>
           <button
             type="button"
-            disabled={saving || isEditing}
+            disabled={saving || isEditing || regenerating}
             onClick={() => handleDownloadOnly('docx')}
             className="inline-flex items-center justify-center gap-1 rounded-md border border-gray-300 bg-white px-2 py-2 text-xs text-gray-700 disabled:opacity-50"
           >
@@ -273,13 +291,22 @@ const ResumeEditor: React.FC = () => {
           </button>
           <button
             type="button"
-            disabled={saving || isEditing}
+            disabled={saving || isEditing || regenerating}
             onClick={() => handleDownloadOnly('pdf')}
             className="inline-flex items-center justify-center gap-1 rounded-md border border-gray-300 bg-white px-2 py-2 text-xs text-gray-700 disabled:opacity-50"
           >
             PDF only
           </button>
         </div>
+        <button
+          type="button"
+          disabled={saving || isEditing || regenerating}
+          onClick={handleRegenerate}
+          className="w-full inline-flex items-center justify-center gap-1 rounded-md bg-primary-600 px-2 py-2 text-xs font-medium text-white disabled:opacity-50"
+        >
+          {regenerating ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Sparkles className="w-3.5 h-3.5" />}
+          Regenerate
+        </button>
         <p className="text-[11px] text-gray-500">Save writes the application to Supabase, then downloads the file.</p>
       </div>
 
@@ -614,15 +641,6 @@ const ResumeEditor: React.FC = () => {
           </div>
         ))}
       </section>
-
-      <button
-        type="button"
-        onClick={() => resetGenerationState(tabId)}
-        className="inline-flex items-center gap-2 text-sm text-gray-600 hover:text-gray-900"
-      >
-        <RefreshCw className="w-4 h-4" />
-        Start over
-      </button>
     </div>
   );
 };

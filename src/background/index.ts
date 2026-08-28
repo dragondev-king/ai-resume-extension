@@ -1,6 +1,7 @@
 import { GENERATION_STORAGE_PREFIX } from '../lib/generationTypes';
 import { runQueuedGeneration, type StartGenerationPayload } from '../lib/runGeneration';
 import { removeGenerationState } from '../lib/generationStore';
+import { disableGlobalSidePanel, disableTabSidePanel } from '../lib/sidePanel';
 
 async function pruneOrphanedGenerationState(): Promise<void> {
   const tabs = await chrome.tabs.query({});
@@ -17,16 +18,32 @@ async function pruneOrphanedGenerationState(): Promise<void> {
 }
 
 chrome.runtime.onInstalled.addListener(() => {
-  void chrome.sidePanel.setPanelBehavior({ openPanelOnActionClick: false });
+  void disableGlobalSidePanel();
   void pruneOrphanedGenerationState();
 });
 
 chrome.runtime.onStartup.addListener(() => {
+  void disableGlobalSidePanel();
   void pruneOrphanedGenerationState();
 });
 
 chrome.tabs.onRemoved.addListener((tabId) => {
   void removeGenerationState(tabId);
+});
+
+chrome.runtime.onConnect.addListener((port) => {
+  if (!port.name.startsWith('sidePanel:')) return;
+  const tabId = Number(port.name.slice('sidePanel:'.length));
+  if (!Number.isFinite(tabId)) return;
+
+  port.onDisconnect.addListener(() => {
+    void (async () => {
+      const [active] = await chrome.tabs.query({ active: true, lastFocusedWindow: true });
+      if (active?.id === tabId) {
+        await disableTabSidePanel(tabId);
+      }
+    })();
+  });
 });
 
 chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
