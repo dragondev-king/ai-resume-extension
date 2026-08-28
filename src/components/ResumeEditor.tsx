@@ -1,4 +1,4 @@
-import React, { useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import {
   Copy,
   Download,
@@ -27,6 +27,26 @@ import { getResumeTemplate, listResumeTemplates, pickRandomResumeTemplate } from
 import { formatDate } from '../utils/helpers';
 import type { GeneratedResume } from '../utils/resumeGenerator';
 import { BoldMarkupText } from './BoldMarkupText';
+import ResumeTemplatePreview from './ResumeTemplatePreview';
+
+function useElementWidth<T extends HTMLElement>() {
+  const [el, setEl] = useState<T | null>(null);
+  const [width, setWidth] = useState(0);
+
+  useEffect(() => {
+    if (!el) return;
+
+    const observer = new ResizeObserver((entries) => {
+      const next = entries[0]?.contentRect.width;
+      if (typeof next === 'number') setWidth(next);
+    });
+    observer.observe(el);
+    setWidth(el.getBoundingClientRect().width);
+    return () => observer.disconnect();
+  }, [el]);
+
+  return { ref: setEl, width };
+}
 
 const ResumeEditor: React.FC = () => {
   const generation = useGenerationState();
@@ -45,6 +65,7 @@ const ResumeEditor: React.FC = () => {
   const [coverDraft, setCoverDraft] = useState('');
   const [newQuestion, setNewQuestion] = useState('');
   const [answerBusyId, setAnswerBusyId] = useState<string | null>(null);
+  const { ref: templateSectionRef, width: templateSectionWidth } = useElementWidth<HTMLDivElement>();
 
   const profile = profiles.find((p) => p.id === generation.profileId);
   const resume = generation.generatedResume;
@@ -240,20 +261,81 @@ const ResumeEditor: React.FC = () => {
         </div>
       </div>
 
-      <div className="rounded-md border border-gray-200 bg-gray-50 p-3 space-y-3">
-        <label className="block text-sm font-medium text-gray-800">Template</label>
-        <select
-          value={selectedTemplateId}
-          onChange={(e) => setSelectedTemplateId(e.target.value)}
-          className="w-full rounded-md border border-gray-300 px-2 py-1.5 text-sm"
-        >
-          <option value="">Random</option>
-          {templates.map((template) => (
-            <option key={template.id} value={template.id}>
-              {template.name}
-            </option>
-          ))}
-        </select>
+      <div ref={templateSectionRef} className="rounded-md border border-gray-200 bg-gray-50 p-3 space-y-3">
+        <fieldset>
+          <legend className="text-sm font-medium text-gray-800 mb-2">Resume template</legend>
+          {templateSectionWidth >= 420 ? (
+            <div
+              className={`grid gap-3 ${
+                templateSectionWidth >= 840
+                  ? 'grid-cols-5'
+                  : templateSectionWidth >= 680
+                    ? 'grid-cols-4'
+                    : templateSectionWidth >= 540
+                      ? 'grid-cols-3'
+                      : 'grid-cols-2'
+              }`}
+            >
+              <label
+                className={`relative flex cursor-pointer flex-col gap-2 rounded-md border bg-white p-2 transition-colors ${
+                  selectedTemplateId === ''
+                    ? 'border-primary-500 ring-2 ring-primary-200'
+                    : 'border-gray-200 hover:border-gray-300'
+                }`}
+              >
+                <input
+                  type="radio"
+                  name="resume-template"
+                  value=""
+                  checked={selectedTemplateId === ''}
+                  onChange={() => setSelectedTemplateId('')}
+                  className="sr-only"
+                />
+                <div
+                  className="flex aspect-[8.5/11] w-full items-center justify-center bg-gradient-to-br from-gray-100 to-gray-200 text-center"
+                  aria-hidden
+                >
+                  <span className="px-2 text-xs font-medium text-gray-600">Random</span>
+                </div>
+                <span className="text-center text-sm font-medium text-gray-900">Random</span>
+              </label>
+              {templates.map((template) => (
+                <label
+                  key={template.id}
+                  className={`relative flex cursor-pointer flex-col gap-2 rounded-md border bg-white p-2 transition-colors ${
+                    selectedTemplateId === template.id
+                      ? 'border-primary-500 ring-2 ring-primary-200'
+                      : 'border-gray-200 hover:border-gray-300'
+                  }`}
+                >
+                  <input
+                    type="radio"
+                    name="resume-template"
+                    value={template.id}
+                    checked={selectedTemplateId === template.id}
+                    onChange={() => setSelectedTemplateId(template.id)}
+                    className="sr-only"
+                  />
+                  <ResumeTemplatePreview template={template} className="w-full" />
+                  <span className="text-center text-sm font-medium text-gray-900">{template.name}</span>
+                </label>
+              ))}
+            </div>
+          ) : (
+            <select
+              value={selectedTemplateId}
+              onChange={(e) => setSelectedTemplateId(e.target.value)}
+              className="w-full rounded-md border border-gray-300 px-2 py-1.5 text-sm"
+            >
+              <option value="">Random</option>
+              {templates.map((template) => (
+                <option key={template.id} value={template.id}>
+                  {template.name}
+                </option>
+              ))}
+            </select>
+          )}
+        </fieldset>
         <label className="flex items-center gap-2 text-sm text-gray-700">
           <input
             type="checkbox"
