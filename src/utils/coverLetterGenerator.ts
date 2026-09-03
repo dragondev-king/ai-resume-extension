@@ -1,15 +1,17 @@
 import type { ProfileWithDetailsRPC } from '../lib/supabase';
 import { apiUrl } from '../lib/api';
+import type { AIProvider } from './resumeGenerator';
 
 export const generateCoverLetter = async (
   profile: ProfileWithDetailsRPC,
   jobDescription: string,
-  resumeContent: unknown
+  resumeContent: unknown,
+  provider: AIProvider = 'openai'
 ) => {
   const response = await fetch(apiUrl('/api/generate-cover-letter'), {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ profile, jobDescription, resumeContent }),
+    body: JSON.stringify({ profile, jobDescription, resumeContent, provider }),
   });
 
   if (!response.ok) {
@@ -29,12 +31,13 @@ export const generateAnswer = async (
   profile: ProfileWithDetailsRPC,
   question: string,
   jobDescription: string,
-  resumeContent: unknown
+  resumeContent: unknown,
+  provider: AIProvider = 'openai'
 ) => {
   const response = await fetch(apiUrl('/api/generate-answer'), {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ profile, question, jobDescription, resumeContent }),
+    body: JSON.stringify({ profile, question, jobDescription, resumeContent, provider }),
   });
 
   if (!response.ok) {

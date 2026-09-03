@@ -224,7 +224,7 @@ const ResumeEditor: React.FC = () => {
     if (!profile) return;
     setCoverBusy(true);
     try {
-      const cover = await generateCoverLetter(profile, generation.jobDescription, resume);
+      const cover = await generateCoverLetter(profile, generation.jobDescription, resume, generation.provider);
       await persist({ coverLetter: cover });
       toast.success('Cover letter generated');
     } catch (err) {
@@ -243,7 +243,7 @@ const ResumeEditor: React.FC = () => {
     setNewQuestion('');
     setAnswerBusyId(id);
     try {
-      const result = await generateAnswer(profile, question, generation.jobDescription, resume);
+      const result = await generateAnswer(profile, question, generation.jobDescription, resume, generation.provider);
       await persist({
         questions: next.map((q) => (q.id === id ? { ...q, answer: result.content } : q)),
       });
