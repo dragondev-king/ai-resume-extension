@@ -4,7 +4,7 @@ import { SUGGESTED_SHORTCUTS } from './lib/commands';
 export default defineManifest({
   manifest_version: 3,
   name: 'AI Resume Generator',
-  version: '1.0.0',
+  version: '1.0.2',
   author: {
     email: "dragondev1017@gmail.com",
   },
