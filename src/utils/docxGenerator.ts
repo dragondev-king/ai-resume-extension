@@ -11,7 +11,7 @@ import {
   WidthType,
   VerticalAlign,
 } from 'docx';
-import { saveAs } from 'file-saver';
+import { downloadBlobOverwrite } from '../lib/downloadFile';
 import { ProfileWithDetailsRPC } from '../lib/supabase';
 import { formatDate } from './helpers';
 import { getUseAiEnhancedJobTitleForProfile } from './profileMetadata';
@@ -217,7 +217,7 @@ export const generateDocx = async (
   });
 
   const blob = await Packer.toBlob(doc);
-  saveAs(blob, fileName);
+  await downloadBlobOverwrite(blob, fileName);
 };
 
 type BodyRunFn = ReturnType<typeof makeBodyRun>;

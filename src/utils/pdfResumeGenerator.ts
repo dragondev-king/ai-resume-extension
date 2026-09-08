@@ -1,5 +1,5 @@
 import { jsPDF } from 'jspdf';
-import { saveAs } from 'file-saver';
+import { downloadBlobOverwrite } from '../lib/downloadFile';
 import { ProfileWithDetailsRPC } from '../lib/supabase';
 import { getUseAiEnhancedJobTitleForProfile } from './profileMetadata';
 import type { GenerateDocxOptions } from './docxGenerator';
@@ -474,5 +474,5 @@ export async function generateResumePdf(
   }
 
   const blob = doc.output('blob');
-  saveAs(blob, fileName);
+  await downloadBlobOverwrite(blob, fileName);
 }

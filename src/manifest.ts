@@ -4,7 +4,7 @@ import { SUGGESTED_SHORTCUTS } from './lib/commands';
 export default defineManifest({
   manifest_version: 3,
   name: 'AI Resume Generator',
-  version: '1.0.2',
+  version: '1.0.3',
   author: {
     email: "dragondev1017@gmail.com",
   },
@@ -32,7 +32,7 @@ export default defineManifest({
     service_worker: 'src/background/index.ts',
     type: 'module',
   },
-  permissions: ['storage', 'sidePanel', 'scripting', 'tabs', 'activeTab'],
+  permissions: ['storage', 'sidePanel', 'scripting', 'tabs', 'activeTab', 'downloads'],
   host_permissions: ['https://*/*', 'http://*/*'],
   commands: {
     _execute_action: {
