@@ -27,6 +27,7 @@ import { generateAnswer, generateCoverLetter } from '../utils/coverLetterGenerat
 import { getResumeTemplate, listResumeTemplates, pickRandomResumeTemplate } from '../resumeTemplates';
 import { formatDate } from '../utils/helpers';
 import type { GeneratedResume } from '../utils/resumeGenerator';
+import { buildJobApplicationMetadata } from '../utils/applicationMetadata';
 import { BoldMarkupText } from './BoldMarkupText';
 import ResumeTemplatePreview from './ResumeTemplatePreview';
 import ScrollJumpButtons from './ScrollJumpButtons';
@@ -118,6 +119,7 @@ const ResumeEditor: React.FC = () => {
       useAiEnhancedJobTitle: useAiTitle,
       includeLinkedIn,
       templateId,
+      hiddenJobDescription: generation.jobDescription,
     };
     const fileName = buildResumeFileName(profile, resume.jobTitle, resume.companyName, format);
     if (format === 'docx') {
@@ -162,7 +164,11 @@ const ResumeEditor: React.FC = () => {
         p_generated_summary: resume.summary,
         p_generated_experience: resume.experience,
         p_generated_skills: resume.skills,
-        p_metadata: { resumeTemplateId: template.id },
+        p_metadata: buildJobApplicationMetadata({
+          resumeTemplateId: template.id,
+          aiProvider: generation.provider,
+          resumeApiVersion: generation.resumeApiVersion,
+        }),
       });
       if (error) {
         toast.error(error.message || 'Error saving job application');
@@ -193,6 +199,7 @@ const ResumeEditor: React.FC = () => {
       await queueGeneration({
         profile,
         provider: generation.provider,
+        resumeApiVersion: generation.resumeApiVersion,
         tabId,
         pageTitle: generation.pageTitle,
         pageUrl: generation.jobDescriptionLink,

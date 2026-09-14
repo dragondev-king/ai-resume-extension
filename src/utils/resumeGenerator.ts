@@ -1,5 +1,6 @@
 import type { ProfileWithDetailsRPC } from '../lib/supabase';
 import { apiUrl } from '../lib/api';
+import { isSoftSkillLabel, sanitizeSkillName } from './resumeLayout';
 
 export interface GeneratedResume {
   summary: string;
@@ -12,18 +13,29 @@ export interface GeneratedResume {
     address?: string;
   }[];
   skills: string[];
+  hardSkills?: string[];
+  softSkills?: string[];
   jobTitle?: string;
   companyName?: string;
 }
 
 export type AIProvider = 'openai' | 'claude';
+export type ResumeApiVersion = 'v1' | 'v2';
+
+/** v1 = original aggressive tailoring. v2 = ATS keywords without inventing stacks. */
+export const RESUME_API_VERSION: ResumeApiVersion = 'v1';
+
+function generateResumePath(version: ResumeApiVersion): string {
+  return version === 'v2' ? '/api/v2/generate-resume' : '/api/generate-resume';
+}
 
 export const generateResume = async (
   profile: ProfileWithDetailsRPC,
   jobDescription: string,
-  provider: AIProvider = 'openai'
+  provider: AIProvider = 'openai',
+  version: ResumeApiVersion = RESUME_API_VERSION
 ): Promise<GeneratedResume> => {
-  const response = await fetch(apiUrl('/api/generate-resume'), {
+  const response = await fetch(apiUrl(generateResumePath(version)), {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ profile, jobDescription, provider }),
@@ -51,6 +63,8 @@ const parseAIResponse = (
   const parsed =
     typeof aiResponse === 'string' ? parseJsonResponse(aiResponse) : aiResponse;
 
+  const skillGroups = parseSkillPayload(parsed.skills, originalProfile.skills);
+
   return {
     summary: (parsed.summary as string) || originalProfile.summary || '',
     experience:
@@ -63,7 +77,9 @@ const parseAIResponse = (
         descriptions: exp.description ? [exp.description] : [],
         address: exp.address,
       })),
-    skills: (parsed.skills as string[]) || originalProfile.skills,
+    skills: skillGroups.skills,
+    hardSkills: skillGroups.hardSkills,
+    softSkills: skillGroups.softSkills,
     jobTitle: (parsed.jobTitle as string) || '',
     companyName: (parsed.companyName as string) || '',
   };
@@ -90,3 +106,35 @@ const parseJsonResponse = (aiResponse: string): Record<string, unknown> => {
   jsonString = jsonString.replace(/,(\s*[}\]])/g, '$1');
   return JSON.parse(jsonString);
 };
+
+function normalizeGeneratedSkills(skills: unknown, fallback: string[]): string[] {
+  const raw = Array.isArray(skills)
+    ? skills
+    : typeof skills === 'string'
+      ? skills.split(/,|<\/?br\s*\/?>|\n/i)
+      : fallback;
+  return raw.map((skill) => sanitizeSkillName(String(skill))).filter(Boolean);
+}
+
+function parseSkillPayload(
+  skills: unknown,
+  fallback: string[]
+): { skills: string[]; hardSkills: string[]; softSkills: string[] } {
+  if (skills && typeof skills === 'object' && !Array.isArray(skills)) {
+    const obj = skills as Record<string, unknown>;
+    const hardSkills = normalizeGeneratedSkills(obj.hard ?? obj.hardSkills, []);
+    const softSkills = normalizeGeneratedSkills(obj.soft ?? obj.softSkills, []);
+    if (hardSkills.length || softSkills.length) {
+      return { hardSkills, softSkills, skills: [...hardSkills, ...softSkills] };
+    }
+  }
+
+  const flat = normalizeGeneratedSkills(skills, fallback);
+  const hardSkills: string[] = [];
+  const softSkills: string[] = [];
+  for (const skill of flat) {
+    if (isSoftSkillLabel(skill)) softSkills.push(skill);
+    else hardSkills.push(skill);
+  }
+  return { skills: flat, hardSkills, softSkills };
+}

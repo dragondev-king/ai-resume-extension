@@ -1,6 +1,6 @@
 import { extractTabText } from './pageText';
 import { getGenerationState, setGenerationState } from './generationStore';
-import { generateResume, type AIProvider } from '../utils/resumeGenerator';
+import { generateResume, type AIProvider, type ResumeApiVersion } from '../utils/resumeGenerator';
 import type { ProfileWithDetailsRPC } from './supabase';
 import {
   canApplyToCompany,
@@ -15,6 +15,7 @@ export type StartGenerationPayload = {
   tabId: number;
   profile: ProfileWithDetailsRPC;
   provider: AIProvider;
+  resumeApiVersion: ResumeApiVersion;
   pageTitle?: string;
   pageUrl?: string;
 };
@@ -24,6 +25,7 @@ export async function queueGeneration(payload: StartGenerationPayload): Promise<
     status: 'pending',
     profileId: payload.profile.id,
     provider: payload.provider,
+    resumeApiVersion: payload.resumeApiVersion,
     tabId: payload.tabId,
     jobDescriptionLink: payload.pageUrl || '',
     pageTitle: payload.pageTitle || '',
@@ -92,6 +94,7 @@ export async function runQueuedGeneration(payload: StartGenerationPayload): Prom
         status: 'pending',
         profileId: profile.id,
         provider: payload.provider,
+        resumeApiVersion: payload.resumeApiVersion,
         jobDescriptionLink: payload.pageUrl || existing.jobDescriptionLink,
         pageTitle: payload.pageTitle || existing.pageTitle,
         generatedResume: null,
@@ -108,13 +111,14 @@ export async function runQueuedGeneration(payload: StartGenerationPayload): Prom
       status: 'generating',
       profileId: profile.id,
       provider: payload.provider,
+      resumeApiVersion: payload.resumeApiVersion,
       error: null,
       blockedCompany: null,
       duplicateChecked: false,
     });
 
     const page = await extractTabText(tabId);
-    const generated = await generateResume(profile, page.text, payload.provider);
+    const generated = await generateResume(profile, page.text, payload.provider, payload.resumeApiVersion);
 
     const { data: sessionData } = await supabase.auth.getSession();
     if (sessionData.session) {

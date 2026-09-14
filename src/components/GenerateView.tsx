@@ -8,8 +8,8 @@ import { useGenerationState } from '../lib/useGenerationState';
 import { queueGeneration } from '../lib/runGeneration';
 import { openTabSidePanel } from '../lib/sidePanel';
 import { API_BASE_URL } from '../lib/api';
-import { SELECTED_PROFILE_KEY, SELECTED_PROVIDER_KEY } from '../lib/generationTypes';
-import type { AIProvider } from '../utils/resumeGenerator';
+import { SELECTED_PROFILE_KEY, SELECTED_PROVIDER_KEY, SELECTED_API_VERSION_KEY } from '../lib/generationTypes';
+import type { AIProvider, ResumeApiVersion } from '../utils/resumeGenerator';
 import ShortcutHints from './ShortcutHints';
 
 type GenerateViewProps = {
@@ -23,15 +23,19 @@ const GenerateView: React.FC<GenerateViewProps> = ({ compact = true }) => {
   const generation = useGenerationState();
   const [selectedProfile, setSelectedProfile] = useState('');
   const [aiProvider, setAiProvider] = useState<AIProvider>('openai');
+  const [resumeApiVersion, setResumeApiVersion] = useState<ResumeApiVersion>('v2');
   const [starting, setStarting] = useState(false);
 
   useEffect(() => {
-    chrome.storage.local.get([SELECTED_PROFILE_KEY, SELECTED_PROVIDER_KEY]).then((stored) => {
+    chrome.storage.local.get([SELECTED_PROFILE_KEY, SELECTED_PROVIDER_KEY, SELECTED_API_VERSION_KEY]).then((stored) => {
       if (typeof stored[SELECTED_PROFILE_KEY] === 'string') {
         setSelectedProfile(stored[SELECTED_PROFILE_KEY]);
       }
       if (stored[SELECTED_PROVIDER_KEY] === 'openai' || stored[SELECTED_PROVIDER_KEY] === 'claude') {
         setAiProvider(stored[SELECTED_PROVIDER_KEY]);
+      }
+      if (stored[SELECTED_API_VERSION_KEY] === 'v1' || stored[SELECTED_API_VERSION_KEY] === 'v2') {
+        setResumeApiVersion(stored[SELECTED_API_VERSION_KEY]);
       }
     });
   }, []);
@@ -76,11 +80,13 @@ const GenerateView: React.FC<GenerateViewProps> = ({ compact = true }) => {
       await chrome.storage.local.set({
         [SELECTED_PROFILE_KEY]: selectedProfile,
         [SELECTED_PROVIDER_KEY]: aiProvider,
+        [SELECTED_API_VERSION_KEY]: resumeApiVersion,
       });
       await openSidePanel(tab.id);
       await queueGeneration({
         profile,
         provider: aiProvider,
+        resumeApiVersion,
         tabId: tab.id,
         pageTitle: tab.title,
         pageUrl: tab.url,
@@ -202,6 +208,32 @@ const GenerateView: React.FC<GenerateViewProps> = ({ compact = true }) => {
               className="text-primary-600"
             />
             Claude
+          </label>
+        </div>
+      </div>
+
+      <div>
+        <label className="block text-sm font-medium text-gray-700 mb-2">Resume API version</label>
+        <div className="flex gap-4">
+          <label className="flex items-center gap-2 text-sm text-gray-700 cursor-pointer">
+            <input
+              type="radio"
+              name="resumeApiVersion"
+              checked={resumeApiVersion === 'v1'}
+              onChange={() => setResumeApiVersion('v1')}
+              className="text-primary-600"
+            />
+            v1
+          </label>
+          <label className="flex items-center gap-2 text-sm text-gray-700 cursor-pointer">
+            <input
+              type="radio"
+              name="resumeApiVersion"
+              checked={resumeApiVersion === 'v2'}
+              onChange={() => setResumeApiVersion('v2')}
+              className="text-primary-600"
+            />
+            v2
           </label>
         </div>
       </div>
