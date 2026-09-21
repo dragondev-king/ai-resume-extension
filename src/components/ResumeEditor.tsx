@@ -226,6 +226,7 @@ const ResumeEditor: React.FC = () => {
         tabId,
         pageTitle: generation.pageTitle,
         pageUrl: generation.jobDescriptionLink,
+        ignoreNonRemote: generation.ignoreNonRemote || generation.status === 'ready',
       });
     } catch (err) {
       toast.error(err instanceof Error ? err.message : 'Could not regenerate resume');

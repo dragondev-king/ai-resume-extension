@@ -6,6 +6,7 @@ import { useUser } from '../contexts/UserContext';
 import { useProfiles } from '../contexts/ProfilesContext';
 import { useGenerationState } from '../lib/useGenerationState';
 import { queueGeneration } from '../lib/runGeneration';
+import { setGenerationState } from '../lib/generationStore';
 import { openTabSidePanel } from '../lib/sidePanel';
 import { API_BASE_URL } from '../lib/api';
 import { SELECTED_PROFILE_KEY, SELECTED_PROVIDER_KEY, SELECTED_API_VERSION_KEY } from '../lib/generationTypes';
@@ -27,6 +28,7 @@ const GenerateView: React.FC<GenerateViewProps> = ({ compact = true }) => {
   const [aiProvider, setAiProvider] = useState<AIProvider>('openai');
   const [resumeApiVersion, setResumeApiVersion] = useState<ResumeApiVersion>('v2');
   const [starting, setStarting] = useState(false);
+  const [ignoreNonRemote, setIgnoreNonRemote] = useState(false);
 
   useEffect(() => {
     chrome.storage.local.get([SELECTED_PROFILE_KEY, SELECTED_PROVIDER_KEY, SELECTED_API_VERSION_KEY]).then((stored) => {
@@ -50,6 +52,16 @@ const GenerateView: React.FC<GenerateViewProps> = ({ compact = true }) => {
       setSelectedProfile(profiles[0]?.id ?? '');
     }
   }, [profiles, selectedProfile]);
+
+  useEffect(() => {
+    setIgnoreNonRemote(Boolean(generation.ignoreNonRemote));
+  }, [generation.ignoreNonRemote]);
+
+  const handleIgnoreNonRemoteChange = (checked: boolean) => {
+    setIgnoreNonRemote(checked);
+    if (generation.tabId == null) return;
+    void setGenerationState(generation.tabId, { ignoreNonRemote: checked });
+  };
 
   const openSidePanel = async (tabId: number) => {
     await openTabSidePanel(tabId);
@@ -92,6 +104,7 @@ const GenerateView: React.FC<GenerateViewProps> = ({ compact = true }) => {
         tabId: tab.id,
         pageTitle: tab.title,
         pageUrl: tab.url,
+        ignoreNonRemote,
       });
       if (compact) {
         window.close();
@@ -154,6 +167,15 @@ const GenerateView: React.FC<GenerateViewProps> = ({ compact = true }) => {
       <p className="text-sm text-gray-600">
         We&apos;ll read this job page and tailor a resume for the selected profile.
       </p>
+
+      {generation.status === 'blocked' && generation.blockedReason === 'non-remote' ? (
+        <NonRemoteRoleNotice
+          message={generation.error}
+          matches={generation.nonRemoteMatches}
+          ignoreChecked={ignoreNonRemote}
+          onIgnoreChange={handleIgnoreNonRemoteChange}
+        />
+      ) : null}
 
       {!API_BASE_URL && (
         <p className="text-xs text-amber-800 bg-amber-50 border border-amber-200 rounded-md p-2">
@@ -254,7 +276,14 @@ const GenerateView: React.FC<GenerateViewProps> = ({ compact = true }) => {
       <button
         type="button"
         onClick={handleGenerate}
-        disabled={busy || !selectedProfile || profiles.length === 0}
+        disabled={
+          busy ||
+          !selectedProfile ||
+          profiles.length === 0 ||
+          (generation.status === 'blocked' &&
+            generation.blockedReason === 'non-remote' &&
+            !ignoreNonRemote)
+        }
         className="w-full inline-flex items-center justify-center gap-2 rounded-md bg-primary-600 px-4 py-2.5 text-sm font-medium text-white hover:bg-primary-700 disabled:opacity-50"
       >
         {busy ? (
@@ -272,16 +301,12 @@ const GenerateView: React.FC<GenerateViewProps> = ({ compact = true }) => {
 
       <ShortcutHints />
 
-      {compact && generation.status === 'blocked' && (
-        generation.blockedReason === 'non-remote' ? (
-          <NonRemoteRoleNotice message={generation.error} />
-        ) : (
-          <ExistingApplicationNotice
-            companyName={generation.blockedCompany}
-            applicationId={generation.blockedApplicationId}
-            message={generation.error}
-          />
-        )
+      {compact && generation.status === 'blocked' && generation.blockedReason !== 'non-remote' && (
+        <ExistingApplicationNotice
+          companyName={generation.blockedCompany}
+          applicationId={generation.blockedApplicationId}
+          message={generation.error}
+        />
       )}
     </div>
   );

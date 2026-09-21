@@ -34,9 +34,10 @@ export const generateResume = async (
   profile: ProfileWithDetailsRPC,
   jobDescription: string,
   provider: AIProvider = 'openai',
-  version: ResumeApiVersion = RESUME_API_VERSION
+  version: ResumeApiVersion = RESUME_API_VERSION,
+  ignoreNonRemote = false
 ): Promise<GeneratedResume> => {
-  assertRemoteJobDescription(jobDescription);
+  assertRemoteJobDescription(jobDescription, ignoreNonRemote);
 
   const response = await fetch(apiUrl(generateResumePath(version)), {
     method: 'POST',

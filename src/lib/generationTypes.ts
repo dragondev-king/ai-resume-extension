@@ -1,5 +1,6 @@
 import type { GeneratedResume } from '../utils/resumeGenerator';
 import type { AIProvider, ResumeApiVersion } from '../utils/resumeGenerator';
+import type { NonRemoteMatch } from '../utils/remoteRole';
 
 export type GenerationStatus = 'idle' | 'pending' | 'generating' | 'ready' | 'blocked' | 'error';
 export type GenerationBlockedReason = 'duplicate' | 'non-remote';
@@ -32,6 +33,8 @@ export interface GenerationState {
   blockedCompany: string | null;
   blockedApplicationId: string | null;
   blockedReason: GenerationBlockedReason | null;
+  nonRemoteMatches: NonRemoteMatch[];
+  ignoreNonRemote: boolean;
   duplicateChecked: boolean;
   savedApplicationId: string | null;
   updatedAt: number;
@@ -53,6 +56,8 @@ export const DEFAULT_GENERATION_STATE: GenerationState = {
   blockedCompany: null,
   blockedApplicationId: null,
   blockedReason: null,
+  nonRemoteMatches: [],
+  ignoreNonRemote: false,
   duplicateChecked: false,
   savedApplicationId: null,
   updatedAt: 0,

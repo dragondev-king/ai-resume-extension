@@ -7,7 +7,7 @@ import {
   duplicateApplicationMessage,
   shouldCheckDuplicateApplications,
 } from './duplicateCheck';
-import { isNonRemoteRole, nonRemoteRoleMessage, NonRemoteRoleError } from '../utils/remoteRole';
+import { findNonRemoteMatches, nonRemoteRoleMessage, NonRemoteRoleError } from '../utils/remoteRole';
 import { supabase } from './supabase';
 
 const inFlightTabs = new Set<number>();
@@ -19,6 +19,7 @@ export type StartGenerationPayload = {
   resumeApiVersion: ResumeApiVersion;
   pageTitle?: string;
   pageUrl?: string;
+  ignoreNonRemote?: boolean;
 };
 
 export async function queueGeneration(payload: StartGenerationPayload): Promise<void> {
@@ -37,6 +38,8 @@ export async function queueGeneration(payload: StartGenerationPayload): Promise<
     blockedCompany: null,
     blockedApplicationId: null,
     blockedReason: null,
+    nonRemoteMatches: [],
+    ignoreNonRemote: Boolean(payload.ignoreNonRemote),
     duplicateChecked: false,
     savedApplicationId: null,
   });
@@ -106,6 +109,7 @@ export async function runQueuedGeneration(payload: StartGenerationPayload): Prom
   const { tabId, profile } = payload;
   if (inFlightTabs.has(tabId)) return;
   inFlightTabs.add(tabId);
+  let extractedContent = '';
 
   try {
     const existing = await getGenerationState(tabId);
@@ -124,6 +128,8 @@ export async function runQueuedGeneration(payload: StartGenerationPayload): Prom
         blockedCompany: null,
         blockedApplicationId: null,
         blockedReason: null,
+        nonRemoteMatches: [],
+        ignoreNonRemote: Boolean(payload.ignoreNonRemote),
         duplicateChecked: false,
         savedApplicationId: null,
       });
@@ -138,12 +144,16 @@ export async function runQueuedGeneration(payload: StartGenerationPayload): Prom
       blockedCompany: null,
       blockedApplicationId: null,
       blockedReason: null,
+      nonRemoteMatches: [],
+      ignoreNonRemote: Boolean(payload.ignoreNonRemote),
       duplicateChecked: false,
     });
 
     const page = await extractTabText(tabId);
     const pageContent = `${page.title}\n${page.text}`;
-    if (isNonRemoteRole(pageContent)) {
+    extractedContent = pageContent;
+    const nonRemoteMatches = findNonRemoteMatches(pageContent);
+    if (!payload.ignoreNonRemote && nonRemoteMatches.length > 0) {
       await setGenerationState(tabId, {
         status: 'blocked',
         generatedResume: null,
@@ -155,12 +165,20 @@ export async function runQueuedGeneration(payload: StartGenerationPayload): Prom
         blockedCompany: null,
         blockedApplicationId: null,
         blockedReason: 'non-remote',
+        nonRemoteMatches,
+        ignoreNonRemote: false,
         error: nonRemoteRoleMessage(pageContent),
       });
       return;
     }
 
-    const generated = await generateResume(profile, page.text, payload.provider, payload.resumeApiVersion);
+    const generated = await generateResume(
+      profile,
+      page.text,
+      payload.provider,
+      payload.resumeApiVersion,
+      Boolean(payload.ignoreNonRemote)
+    );
 
     const { data: sessionData } = await supabase.auth.getSession();
     if (sessionData.session) {
@@ -188,6 +206,8 @@ export async function runQueuedGeneration(payload: StartGenerationPayload): Prom
         blockedCompany: null,
         blockedApplicationId: null,
         blockedReason: 'non-remote',
+        nonRemoteMatches: findNonRemoteMatches(extractedContent),
+        ignoreNonRemote: false,
         error: err.message,
       });
       return;

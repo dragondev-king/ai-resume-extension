@@ -5,7 +5,6 @@ import { AppProviders } from '../components/AppProviders';
 import GenerateView from '../components/GenerateView';
 import ResumeEditor from '../components/ResumeEditor';
 import ExistingApplicationNotice from '../components/ExistingApplicationNotice';
-import NonRemoteRoleNotice from '../components/NonRemoteRoleNotice';
 import { useGenerationState } from '../lib/useGenerationState';
 import { useProfiles } from '../contexts/ProfilesContext';
 import { setGenerationState } from '../lib/generationStore';
@@ -128,15 +127,13 @@ function SidePanelContent() {
   if (generation.status === 'blocked') {
     return (
       <div className="p-5 space-y-4">
-        {generation.blockedReason === 'non-remote' ? (
-          <NonRemoteRoleNotice message={generation.error} />
-        ) : (
+        {generation.blockedReason === 'duplicate' ? (
           <ExistingApplicationNotice
             companyName={generation.blockedCompany}
             applicationId={generation.blockedApplicationId}
             message={generation.error}
           />
-        )}
+        ) : null}
         <GenerateView compact={false} />
       </div>
     );
