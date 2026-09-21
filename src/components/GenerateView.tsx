@@ -11,6 +11,8 @@ import { API_BASE_URL } from '../lib/api';
 import { SELECTED_PROFILE_KEY, SELECTED_PROVIDER_KEY, SELECTED_API_VERSION_KEY } from '../lib/generationTypes';
 import type { AIProvider, ResumeApiVersion } from '../utils/resumeGenerator';
 import ShortcutHints from './ShortcutHints';
+import ExistingApplicationNotice from './ExistingApplicationNotice';
+import NonRemoteRoleNotice from './NonRemoteRoleNotice';
 
 type GenerateViewProps = {
   compact?: boolean;
@@ -270,11 +272,16 @@ const GenerateView: React.FC<GenerateViewProps> = ({ compact = true }) => {
 
       <ShortcutHints />
 
-      {generation.status === 'blocked' && generation.blockedCompany && (
-        <div className="rounded-md border border-amber-200 bg-amber-50 p-3 text-sm text-amber-900">
-          This profile already has an active application to {generation.blockedCompany}. You cannot
-          submit multiple applications to the same company.
-        </div>
+      {compact && generation.status === 'blocked' && (
+        generation.blockedReason === 'non-remote' ? (
+          <NonRemoteRoleNotice message={generation.error} />
+        ) : (
+          <ExistingApplicationNotice
+            companyName={generation.blockedCompany}
+            applicationId={generation.blockedApplicationId}
+            message={generation.error}
+          />
+        )
       )}
     </div>
   );

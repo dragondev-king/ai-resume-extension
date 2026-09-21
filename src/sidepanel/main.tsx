@@ -4,11 +4,13 @@ import { Loader2 } from 'lucide-react';
 import { AppProviders } from '../components/AppProviders';
 import GenerateView from '../components/GenerateView';
 import ResumeEditor from '../components/ResumeEditor';
+import ExistingApplicationNotice from '../components/ExistingApplicationNotice';
+import NonRemoteRoleNotice from '../components/NonRemoteRoleNotice';
 import { useGenerationState } from '../lib/useGenerationState';
 import { useProfiles } from '../contexts/ProfilesContext';
 import { setGenerationState } from '../lib/generationStore';
 import {
-  canApplyToCompany,
+  checkDuplicateApplication,
   duplicateApplicationMessage,
   shouldCheckDuplicateApplications,
 } from '../lib/duplicateCheck';
@@ -56,8 +58,8 @@ function DuplicateCheckGate({ children }: { children: React.ReactNode }) {
     if (checking.current) return;
     checking.current = true;
 
-    canApplyToCompany(profile.id, company)
-      .then((canApply) => {
+    checkDuplicateApplication(profile.id, company)
+      .then(({ canApply, existingApplicationId }) => {
         if (!generation.tabId) return;
         if (!canApply) {
           return setGenerationState(generation.tabId, {
@@ -66,11 +68,18 @@ function DuplicateCheckGate({ children }: { children: React.ReactNode }) {
             coverLetter: null,
             questions: [],
             blockedCompany: company,
+            blockedApplicationId: existingApplicationId,
+            blockedReason: 'duplicate',
             duplicateChecked: true,
             error: duplicateApplicationMessage(company),
           });
         }
-        return setGenerationState(generation.tabId, { duplicateChecked: true, blockedCompany: null });
+        return setGenerationState(generation.tabId, {
+          duplicateChecked: true,
+          blockedCompany: null,
+          blockedApplicationId: null,
+          blockedReason: null,
+        });
       })
       .catch((err) => {
         if (!generation.tabId) return;
@@ -119,10 +128,15 @@ function SidePanelContent() {
   if (generation.status === 'blocked') {
     return (
       <div className="p-5 space-y-4">
-        <div className="rounded-md border border-amber-200 bg-amber-50 p-3 text-sm text-amber-950">
-          {generation.error ||
-            `This profile already has an active application to ${generation.blockedCompany || 'this company'}. You cannot submit multiple applications to the same company.`}
-        </div>
+        {generation.blockedReason === 'non-remote' ? (
+          <NonRemoteRoleNotice message={generation.error} />
+        ) : (
+          <ExistingApplicationNotice
+            companyName={generation.blockedCompany}
+            applicationId={generation.blockedApplicationId}
+            message={generation.error}
+          />
+        )}
         <GenerateView compact={false} />
       </div>
     );

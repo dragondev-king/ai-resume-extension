@@ -3,10 +3,11 @@ import { getGenerationState, setGenerationState } from './generationStore';
 import { generateResume, type AIProvider, type ResumeApiVersion } from '../utils/resumeGenerator';
 import type { ProfileWithDetailsRPC } from './supabase';
 import {
-  canApplyToCompany,
+  checkDuplicateApplication,
   duplicateApplicationMessage,
   shouldCheckDuplicateApplications,
 } from './duplicateCheck';
+import { isNonRemoteRole, nonRemoteRoleMessage, NonRemoteRoleError } from '../utils/remoteRole';
 import { supabase } from './supabase';
 
 const inFlightTabs = new Set<number>();
@@ -34,6 +35,8 @@ export async function queueGeneration(payload: StartGenerationPayload): Promise<
     questions: [],
     error: null,
     blockedCompany: null,
+    blockedApplicationId: null,
+    blockedReason: null,
     duplicateChecked: false,
     savedApplicationId: null,
   });
@@ -51,17 +54,27 @@ async function applyDuplicateCheck(
   page: { text: string; url: string; title: string }
 ): Promise<boolean> {
   if (!shouldCheckDuplicateApplications(profile)) {
-    await setGenerationState(tabId, { duplicateChecked: true, blockedCompany: null });
+    await setGenerationState(tabId, {
+      duplicateChecked: true,
+      blockedCompany: null,
+      blockedApplicationId: null,
+      blockedReason: null,
+    });
     return true;
   }
 
   const company = companyName?.trim();
   if (!company) {
-    await setGenerationState(tabId, { duplicateChecked: true, blockedCompany: null });
+    await setGenerationState(tabId, {
+      duplicateChecked: true,
+      blockedCompany: null,
+      blockedApplicationId: null,
+      blockedReason: null,
+    });
     return true;
   }
 
-  const canApply = await canApplyToCompany(profile.id, company);
+  const { canApply, existingApplicationId } = await checkDuplicateApplication(profile.id, company);
   if (!canApply) {
     await setGenerationState(tabId, {
       status: 'blocked',
@@ -72,13 +85,20 @@ async function applyDuplicateCheck(
       jobDescriptionLink: page.url,
       pageTitle: page.title,
       blockedCompany: company,
+      blockedApplicationId: existingApplicationId,
+      blockedReason: 'duplicate',
       duplicateChecked: true,
       error: duplicateApplicationMessage(company),
     });
     return false;
   }
 
-  await setGenerationState(tabId, { duplicateChecked: true, blockedCompany: null });
+  await setGenerationState(tabId, {
+    duplicateChecked: true,
+    blockedCompany: null,
+    blockedApplicationId: null,
+    blockedReason: null,
+  });
   return true;
 }
 
@@ -102,6 +122,8 @@ export async function runQueuedGeneration(payload: StartGenerationPayload): Prom
         questions: [],
         error: null,
         blockedCompany: null,
+        blockedApplicationId: null,
+        blockedReason: null,
         duplicateChecked: false,
         savedApplicationId: null,
       });
@@ -114,10 +136,30 @@ export async function runQueuedGeneration(payload: StartGenerationPayload): Prom
       resumeApiVersion: payload.resumeApiVersion,
       error: null,
       blockedCompany: null,
+      blockedApplicationId: null,
+      blockedReason: null,
       duplicateChecked: false,
     });
 
     const page = await extractTabText(tabId);
+    const pageContent = `${page.title}\n${page.text}`;
+    if (isNonRemoteRole(pageContent)) {
+      await setGenerationState(tabId, {
+        status: 'blocked',
+        generatedResume: null,
+        coverLetter: null,
+        questions: [],
+        jobDescription: page.text,
+        jobDescriptionLink: page.url,
+        pageTitle: page.title,
+        blockedCompany: null,
+        blockedApplicationId: null,
+        blockedReason: 'non-remote',
+        error: nonRemoteRoleMessage(pageContent),
+      });
+      return;
+    }
+
     const generated = await generateResume(profile, page.text, payload.provider, payload.resumeApiVersion);
 
     const { data: sessionData } = await supabase.auth.getSession();
@@ -137,6 +179,19 @@ export async function runQueuedGeneration(payload: StartGenerationPayload): Prom
       savedApplicationId: null,
     });
   } catch (err) {
+    if (err instanceof NonRemoteRoleError) {
+      await setGenerationState(tabId, {
+        status: 'blocked',
+        generatedResume: null,
+        coverLetter: null,
+        questions: [],
+        blockedCompany: null,
+        blockedApplicationId: null,
+        blockedReason: 'non-remote',
+        error: err.message,
+      });
+      return;
+    }
     await setGenerationState(tabId, {
       status: 'error',
       error: err instanceof Error ? err.message : 'Failed to generate resume',

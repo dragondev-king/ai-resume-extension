@@ -6,9 +6,31 @@ export function shouldCheckDuplicateApplications(profile: {
   return profile.check_duplicate_applications !== false;
 }
 
-export async function canApplyToCompany(profileId: string, companyName: string): Promise<boolean> {
+export type DuplicateCheckResult = {
+  canApply: boolean;
+  existingApplicationId: string | null;
+};
+
+function parseCanApplyToCompany(data: unknown): DuplicateCheckResult {
+  if (typeof data === 'string' && data) {
+    return { canApply: false, existingApplicationId: data };
+  }
+  if (Array.isArray(data)) {
+    return parseCanApplyToCompany(data[0]);
+  }
+  if (data === false) {
+    return { canApply: false, existingApplicationId: null };
+  }
+  return { canApply: true, existingApplicationId: null };
+}
+
+/** Existing application id means the profile cannot apply; null means it can. */
+export async function checkDuplicateApplication(
+  profileId: string,
+  companyName: string
+): Promise<DuplicateCheckResult> {
   const name = companyName.trim();
-  if (!name) return true;
+  if (!name) return { canApply: true, existingApplicationId: null };
 
   const { data, error } = await supabase.rpc('can_apply_to_company', {
     p_profile_id: profileId,
@@ -20,8 +42,7 @@ export async function canApplyToCompany(profileId: string, companyName: string):
     throw new Error('Error checking application eligibility');
   }
 
-  if (Array.isArray(data)) return Boolean(data[0]);
-  return Boolean(data);
+  return parseCanApplyToCompany(data);
 }
 
 export function duplicateApplicationMessage(companyName: string): string {

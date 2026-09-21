@@ -2,6 +2,7 @@ import type { GeneratedResume } from '../utils/resumeGenerator';
 import type { AIProvider, ResumeApiVersion } from '../utils/resumeGenerator';
 
 export type GenerationStatus = 'idle' | 'pending' | 'generating' | 'ready' | 'blocked' | 'error';
+export type GenerationBlockedReason = 'duplicate' | 'non-remote';
 
 export interface CoverLetterState {
   content: string;
@@ -29,6 +30,8 @@ export interface GenerationState {
   questions: ApplicationQuestion[];
   error: string | null;
   blockedCompany: string | null;
+  blockedApplicationId: string | null;
+  blockedReason: GenerationBlockedReason | null;
   duplicateChecked: boolean;
   savedApplicationId: string | null;
   updatedAt: number;
@@ -48,6 +51,8 @@ export const DEFAULT_GENERATION_STATE: GenerationState = {
   questions: [],
   error: null,
   blockedCompany: null,
+  blockedApplicationId: null,
+  blockedReason: null,
   duplicateChecked: false,
   savedApplicationId: null,
   updatedAt: 0,

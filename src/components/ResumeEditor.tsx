@@ -31,8 +31,9 @@ import { buildJobApplicationMetadata } from '../utils/applicationMetadata';
 import { BoldMarkupText } from './BoldMarkupText';
 import ResumeTemplatePreview from './ResumeTemplatePreview';
 import ScrollJumpButtons from './ScrollJumpButtons';
+import { applicationDetailsUrl } from '../lib/api';
 import {
-  canApplyToCompany,
+  checkDuplicateApplication,
   duplicateApplicationMessage,
   shouldCheckDuplicateApplications,
 } from '../lib/duplicateCheck';
@@ -145,9 +146,31 @@ const ResumeEditor: React.FC = () => {
       const template = resolveTemplate();
       const companyName = (resume.companyName || '').trim();
       if (shouldCheckDuplicateApplications(profile) && companyName) {
-        const canApply = await canApplyToCompany(profile.id, companyName);
+        const { canApply, existingApplicationId } = await checkDuplicateApplication(
+          profile.id,
+          companyName
+        );
         if (!canApply) {
-          toast.error(duplicateApplicationMessage(companyName));
+          const detailsUrl = existingApplicationId
+            ? applicationDetailsUrl(existingApplicationId)
+            : null;
+          toast.error(
+            detailsUrl ? (
+              <span>
+                {duplicateApplicationMessage(companyName)}{' '}
+                <a
+                  href={detailsUrl}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="font-medium underline"
+                >
+                  View existing application
+                </a>
+              </span>
+            ) : (
+              duplicateApplicationMessage(companyName)
+            )
+          );
           return;
         }
       }
