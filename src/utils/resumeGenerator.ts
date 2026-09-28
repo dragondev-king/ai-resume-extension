@@ -60,6 +60,17 @@ export const generateResume = async (
   return parseAIResponse(profile, data.aiResponse);
 };
 
+function dropUnknownEmployers(
+  experience: GeneratedResume['experience'],
+  original: ProfileWithDetailsRPC['experience']
+): GeneratedResume['experience'] {
+  const allowed = new Set(
+    original.map((exp) => (exp.company ?? '').trim().toLowerCase()).filter(Boolean)
+  );
+  if (allowed.size === 0) return experience;
+  return experience.filter((exp) => allowed.has((exp.company ?? '').trim().toLowerCase()));
+}
+
 const parseAIResponse = (
   originalProfile: ProfileWithDetailsRPC,
   aiResponse: string | Record<string, unknown>
@@ -68,11 +79,14 @@ const parseAIResponse = (
     typeof aiResponse === 'string' ? parseJsonResponse(aiResponse) : aiResponse;
 
   const skillGroups = parseSkillPayload(parsed.skills, originalProfile.skills);
+  const generatedExperience = Array.isArray(parsed.experience)
+    ? dropUnknownEmployers(parsed.experience as GeneratedResume['experience'], originalProfile.experience)
+    : undefined;
 
   return {
     summary: (parsed.summary as string) || originalProfile.summary || '',
     experience:
-      (parsed.experience as GeneratedResume['experience']) ||
+      generatedExperience ||
       originalProfile.experience.map((exp) => ({
         position: exp.position,
         company: exp.company,

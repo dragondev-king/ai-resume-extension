@@ -21,6 +21,7 @@ import { setGenerationState } from '../lib/generationStore';
 import { queueGeneration } from '../lib/runGeneration';
 import { generateResumePdf } from '../utils/pdfResumeGenerator';
 import { generateDocx, resolveResumeExperience } from '../utils/docxGenerator';
+import { validateGeneratedResume } from '../utils/resumeValidation';
 import { getUseAiEnhancedJobTitleForProfile } from '../utils/profileMetadata';
 import { buildResumeFileName, type ResumeDownloadFormat } from '../utils/resumeFileName';
 import { generateAnswer, generateCoverLetter } from '../utils/coverLetterGenerator';
@@ -89,6 +90,14 @@ const ResumeEditor: React.FC = () => {
     return resolveResumeExperience(profile?.experience ?? [], current.experience, useAiTitle);
   }, [current, isEditing, profile, useAiTitle]);
 
+  const resumeValidationError = current && profile
+    ? validateGeneratedResume({
+        originalExperience: profile.experience ?? [],
+        generatedExperience: current.experience,
+        displayedExperience: displayExperience,
+      })
+    : null;
+
   if (!resume || !current || tabId == null) return null;
 
   const persist = (patch: Parameters<typeof setGenerationState>[1]) => setGenerationState(tabId, patch);
@@ -101,6 +110,10 @@ const ResumeEditor: React.FC = () => {
 
   const saveEdits = async () => {
     if (!draft) return;
+    if (resumeValidationError) {
+      toast.error(resumeValidationError);
+      return;
+    }
     await persist({ generatedResume: draft });
     setIsEditing(false);
     toast.success('Changes saved');
@@ -131,6 +144,10 @@ const ResumeEditor: React.FC = () => {
   };
 
   const handleSaveAndDownload = async (format: ResumeDownloadFormat) => {
+    if (resumeValidationError) {
+      toast.error(resumeValidationError);
+      return;
+    }
     if (!profile || !user) {
       toast.error('Profile or user not found');
       return;
@@ -235,6 +252,10 @@ const ResumeEditor: React.FC = () => {
   };
 
   const handleDownloadOnly = async (format: ResumeDownloadFormat) => {
+    if (resumeValidationError) {
+      toast.error(resumeValidationError);
+      return;
+    }
     if (!profile) {
       toast.error('Profile not found');
       return;
@@ -326,7 +347,8 @@ const ResumeEditor: React.FC = () => {
               <button
                 type="button"
                 onClick={saveEdits}
-                className="inline-flex items-center gap-1 rounded-md border border-green-200 bg-green-50 px-2.5 py-1.5 text-xs font-medium text-green-700"
+                disabled={Boolean(resumeValidationError)}
+                className="inline-flex items-center gap-1 rounded-md border border-green-200 bg-green-50 px-2.5 py-1.5 text-xs font-medium text-green-700 disabled:opacity-50"
               >
                 <Save className="w-3.5 h-3.5" />
                 Save
@@ -428,9 +450,14 @@ const ResumeEditor: React.FC = () => {
           Include LinkedIn link
         </label>
         <div className="grid grid-cols-2 gap-2">
+          {resumeValidationError && (
+            <p className="col-span-2 rounded-md border border-red-200 bg-red-50 px-2 py-2 text-xs text-red-700">
+              {resumeValidationError}
+            </p>
+          )}
           <button
             type="button"
-            disabled={saving || isEditing || regenerating || alreadySaved}
+            disabled={saving || isEditing || regenerating || alreadySaved || Boolean(resumeValidationError)}
             onClick={() => handleSaveAndDownload('docx')}
             className="inline-flex items-center justify-center gap-1 rounded-md bg-green-600 px-2 py-2 text-xs font-medium text-white disabled:opacity-50"
           >
@@ -439,7 +466,7 @@ const ResumeEditor: React.FC = () => {
           </button>
           <button
             type="button"
-            disabled={saving || isEditing || regenerating || alreadySaved}
+            disabled={saving || isEditing || regenerating || alreadySaved || Boolean(resumeValidationError)}
             onClick={() => handleSaveAndDownload('pdf')}
             className="inline-flex items-center justify-center gap-1 rounded-md bg-green-700 px-2 py-2 text-xs font-medium text-white disabled:opacity-50"
           >
@@ -448,7 +475,7 @@ const ResumeEditor: React.FC = () => {
           </button>
           <button
             type="button"
-            disabled={saving || isEditing || regenerating}
+            disabled={saving || isEditing || regenerating || Boolean(resumeValidationError)}
             onClick={() => handleDownloadOnly('docx')}
             className="inline-flex items-center justify-center gap-1 rounded-md border border-gray-300 bg-white px-2 py-2 text-xs text-gray-700 disabled:opacity-50"
           >
@@ -456,7 +483,7 @@ const ResumeEditor: React.FC = () => {
           </button>
           <button
             type="button"
-            disabled={saving || isEditing || regenerating}
+            disabled={saving || isEditing || regenerating || Boolean(resumeValidationError)}
             onClick={() => handleDownloadOnly('pdf')}
             className="inline-flex items-center justify-center gap-1 rounded-md border border-gray-300 bg-white px-2 py-2 text-xs text-gray-700 disabled:opacity-50"
           >
