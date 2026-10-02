@@ -24,6 +24,7 @@ import {
   ATS_HIDDEN_TEXT_COLOR,
 } from './resumeLayout';
 import { resolveResumeTheme, type ResumeTheme } from '../resumeTemplates';
+import { coreRoleTitle } from './resumeGenerator';
 
 interface GeneratedResume {
   summary: string;
@@ -88,7 +89,10 @@ export function resolveResumeExperience(
   useAiEnhancedJobTitle: boolean
 ): ExperienceEntry[] {
   if (useAiEnhancedJobTitle && aiExperience.length > 0) {
-    return aiExperience;
+    return aiExperience.map((exp) => ({
+      ...exp,
+      position: coreRoleTitle(exp.position || ''),
+    }));
   }
 
   return originalExperience.map((exp) => {

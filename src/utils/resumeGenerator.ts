@@ -60,6 +60,26 @@ export const generateResume = async (
   return parseAIResponse(profile, data.aiResponse);
 };
 
+/** Role only. "Senior Software Engineer, Marketing Platform" → "Senior Software Engineer". */
+export function coreRoleTitle(title: string): string {
+  let value = title.trim();
+  value = value.replace(/\s*\([^)]*\)\s*$/, '').trim();
+  const comma = value.indexOf(',');
+  if (comma > 0) value = value.slice(0, comma).trim();
+  const dashed = value.split(/\s+[–—-]\s+/);
+  if (dashed.length > 1 && dashed[0].trim()) value = dashed[0].trim();
+  return value || title.trim();
+}
+
+function stripRoleQualifiers(
+  experience: GeneratedResume['experience']
+): GeneratedResume['experience'] {
+  return experience.map((exp) => ({
+    ...exp,
+    position: coreRoleTitle(exp.position || ''),
+  }));
+}
+
 function dropUnknownEmployers(
   experience: GeneratedResume['experience'],
   original: ProfileWithDetailsRPC['experience']
@@ -80,7 +100,9 @@ const parseAIResponse = (
 
   const skillGroups = parseSkillPayload(parsed.skills, originalProfile.skills);
   const generatedExperience = Array.isArray(parsed.experience)
-    ? dropUnknownEmployers(parsed.experience as GeneratedResume['experience'], originalProfile.experience)
+    ? stripRoleQualifiers(
+        dropUnknownEmployers(parsed.experience as GeneratedResume['experience'], originalProfile.experience)
+      )
     : undefined;
 
   return {
